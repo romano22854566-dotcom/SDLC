@@ -1,0 +1,21 @@
+# Сборка CMake и бинарники
+build/
+bin/
+*.o
+*.obj
+*.exe
+*.out
+
+# Файлы сборки и мета-объекты Qt
+*.moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Временные файлы систем и IDE
+.vscode/
+.idea/
+*.user
+*.autosave
+.DS_Store
+Thumbs.db
