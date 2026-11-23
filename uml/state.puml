@@ -1,91 +1,46 @@
 @startuml
 skinparam defaultFontName "Segoe UI"
-skinparam defaultFontSize 13
-skinparam roundcorner 10
+skinparam defaultFontSize 12
+skinparam roundcorner 8
 skinparam shadowing false
 
 skinparam state {
-    BackgroundColor #FFFFFF
-    BorderColor #2563EB
-    BorderThickness 1.3
-    FontColor #0F172A
-    FontSize 12.5
-    ArrowColor #2563EB
-    ArrowThickness 1.3
+    BackgroundColor white
+    BorderColor #333333
+    BorderThickness 1.2
+    FontColor black
+    FontSize 12
+    ArrowColor #333333
+    ArrowThickness 1.1
 }
 
-[*] --> Uninitialized : Наступление календарных суток
+title Диаграмма состояний: Жизненный цикл суточной записи привычек (HabitRecord)
 
-state Uninitialized as "Неинициализирована\n(Uninitialized)" : Запись в habits_db.json отсутствует
-Uninitialized --> Draft : onOpenDate() / Создание экземпляра с дефолтными нормами
+[*] --> Draft : Наступление календарной даты
 
-state Draft as "Черновик (Draft)" {
-    Draft : entry / Загрузка норм пользователя из UserSettings
-    Draft : do / Инициализация чек-листов и счетчиков
-}
+state "Черновик (Draft)" as Draft : Загрузка индивидуальных норм из настроек
+Draft --> InProgress : onInputData() / Ввод сна, воды, питания
 
-Draft --> InProgress : onInputData() / Начало ввода
+state "В процессе ввода (InProgress)" as InProgress : Заполнение параметров пользователем
 
-state InProgress as "В процессе ввода (InProgress)" {
-    InProgress : do / Отслеживание инкрементов воды (+250/+500 мл)
-    InProgress : do / Ввод продолжительности сна и чекбоксов питания
-}
+InProgress --> Successful : [D >= 80%] / Инкремент стрика
+InProgress --> Partial : [50% <= D < 80%] / Стрик сохранен
+InProgress --> Failed : [D < 50%] / Обнуление стрика (0)
 
-InProgress --> Validating : onSaveClicked() / Запрос фиксации дня
+state "Успешный день (Successful)" as Successful : Статус GREEN в календаре
+state "Частичный день (Partial)" as Partial : Статус YELLOW в календаре
+state "Срыв режима (Failed)" as Failed : Статус RED в календаре
 
-state Validating as "Валидация (Validating)" <<choice>>
-Validating --> InProgress : [ошибка диапазонов: сон > 24 ч или вода > 10 л]\n/ Вывод предупреждения Tooltip
-Validating --> Calculating : [все значения корректны]
+Successful --> Persisted : commit() / Атомарная запись в habits_db.json
+Partial --> Persisted : commit() / Атомарная запись в habits_db.json
+Failed --> Persisted : commit() / Атомарная запись в habits_db.json
 
-state Calculating as "Расчет дисциплины (Calculating)" {
-    Calculating : entry / Взвешенное суммирование D = sum(w_i * min(1.0, v_i/target_i))
-}
+state "Зафиксирована (Persisted)" as Persisted : Запись синхронизирована с диском
 
-Calculating --> CompletedSuccessful : [D >= 80%]\n/ инкремент стрика
-Calculating --> CompletedPartial : [50% <= D < 80%]\n/ сохранение без инкремента
-Calculating --> FailedDay : [D < 50%]\n/ обнуление стрика (сброс в 0)
+Persisted --> InProgress : onEditRecord() / Корректировка данных
+Persisted --> Archived : onMidnight() / Смена календарной даты
 
-state CompletedSuccessful as "Успешный день (Successful)" #ECFDF5 {
-    CompletedSuccessful : entry / Присвоение статуса GREEN в календаре
-    CompletedSuccessful : entry / Проверка личного рекорда
-}
+state "Архивная (Archived)" as Archived : Доступна для чтения и экспорта в CSV
 
-state CompletedPartial as "Частичный день (Partial)" #FEF3C7 {
-    CompletedPartial : entry / Присвоение статуса YELLOW в календаре
-}
-
-state FailedDay as "Срыв режима (Failed)" #FEF2F2 {
-    FailedDay : entry / Присвоение статуса RED в календаре
-}
-
-state AtomicSaving as "Атомарное сохранение (AtomicPersisting)" {
-    AtomicSaving : entry / Сериализация в habits_db.json.tmp
-    AtomicSaving : do / fsync() сброс буферов на физический диск
-    AtomicSaving : exit / std::filesystem::rename()
-}
-
-CompletedSuccessful --> AtomicSaving : commit()
-CompletedPartial --> AtomicSaving : commit()
-FailedDay --> AtomicSaving : commit()
-
-state RecoveryMode as "Восстановление (Recovery)" #FEE2E2 {
-    RecoveryMode : entry / Запись диагностического лога в habits_error.log
-    RecoveryMode : do / Откат к резервному файлу habits_db.json.bak
-}
-
-AtomicSaving --> RecoveryMode : [сбой ввода-вывода I/O]
-RecoveryMode --> Persisted : [восстановление завершено]
-AtomicSaving --> Persisted : [успешная замена файла]
-
-state Persisted as "Зафиксирована (Persisted)" #F0F9FF {
-    Persisted : entry / Генерация сигнала dataSaved()
-    Persisted : do / Обновление календаря и прогресс-бара
-}
-
-Persisted --> InProgress : onEditRecord() / Корректировка показателей
-Persisted --> Archived : onMidnightRollover() / Смена календарной даты
-
-state Archived as "Архивная (Archived)" : Запись защищена от случайного изменения,\nдоступна для экспорта в CSV
-
-Archived --> [*] : Завершение жизненного цикла
+Archived --> [*]
 @enduml

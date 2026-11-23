@@ -1,72 +1,67 @@
 @startuml
 skinparam defaultFontName "Segoe UI"
-skinparam defaultFontSize 14
-skinparam packageStyle rectangle
-skinparam roundcorner 10
+skinparam defaultFontSize 13
+skinparam roundcorner 8
 skinparam shadowing false
-skinparam actorStyle awesome
 
 skinparam rectangle {
-    BackgroundColor #F8FAFC
-    BorderColor #334155
-    BorderThickness 1.5
-    FontSize 16
+    BackgroundColor white
+    BorderColor #4A3B69
+    BorderThickness 1.2
+    FontSize 14
     FontStyle bold
-    FontColor #0F172A
+    FontColor #333333
 }
 
 skinparam usecase {
-    BackgroundColor #FFFFFF
-    BorderColor #2563EB
-    BorderThickness 1.4
-    FontColor #1E293B
-    FontSize 13.5
-    ArrowColor #2563EB
-    ArrowThickness 1.3
+    BackgroundColor white
+    BorderColor #4A3B69
+    BorderThickness 1.2
+    FontColor black
+    FontSize 13
+    ArrowColor #4A3B69
+    ArrowThickness 1.1
 }
 
 skinparam actor {
-    BackgroundColor #DBEAFE
-    BorderColor #1E40AF
-    FontColor #0F172A
-    FontSize 15
-    FontStyle bold
+    BorderColor #4A3B69
+    FontColor black
+    FontSize 13
 }
 
 left to right direction
 
-actor "Пользователь\n(Студент / Пользователь)" as User
-actor "Системный таймер\n(Служба времени)" as Timer
-actor "Файловая система\n(ОС Windows / Linux)" as OS
+actor "Пользователь" as User
 
-rectangle "ИС «Десктопный трекер полезных привычек HabitFlow C++»" as System {
-    usecase "UC-1: Ввести показатели\nсна и питания" as UC_SleepMeal
-    usecase "UC-2: Учесть порцию воды\n(+250 / +500 мл)" as UC_Water
-    usecase "UC-3: Рассчитать интегральную\nсуточную дисциплину" as UC_Calc #EFF6FF
-    usecase "UC-4: Атомарно сохранить\nзапись в habits_db.json" as UC_Save #EFF6FF
-    usecase "UC-5: Просмотреть интерактивный\nкалендарь дисциплины" as UC_Calendar
-    usecase "UC-6: Анализировать серию\nдней и рекорд (стрик)" as UC_Streak
-    usecase "UC-7: Настроить индивидуальные\nцелевые нормы привычек" as UC_Settings
-    usecase "UC-8: Экспортировать историю\nдисциплины в CSV" as UC_Export
-    usecase "UC-9: Подать фоновый звуковой\nсигнал отдыха (таймер 50/10)" as UC_Alert #FEF3C7
-    usecase "UC-10: Свернуть в трей\n/ восстановить окно" as UC_Tray
+rectangle "ИС «HabitFlow C++»" {
+    usecase "Ввести показатели\nсна и питания" as UC_Data
+    usecase "Учесть порцию\nводы (+250/+500 мл)" as UC_Water
+    usecase "Настроить нормы\nпривычек" as UC_Settings
+    usecase "Экспортировать историю\nв CSV" as UC_Export
+    usecase "Просмотреть\nкалендарь" as UC_Calendar
+    
+    usecase "Рассчитать суточную\nдисциплину" as UC_Calc
+    usecase "Анализировать серию\nдней (стрик)" as UC_Streak
+    
+    usecase "Сохранить запись\nв JSON" as UC_Save
+    usecase "Подать звуковой сигнал\nотдыха (50/10)" as UC_Timer
 }
 
-User -- UC_SleepMeal
+actor "Системный таймер" as Timer
+
+User -- UC_Data
 User -- UC_Water
 User -- UC_Calendar
 User -- UC_Settings
 User -- UC_Export
-User -- UC_Tray
 
-UC_SleepMeal ..> UC_Calc : <<include>>
+UC_Data ..> UC_Calc : <<include>>
 UC_Water ..> UC_Calc : <<include>>
 UC_Calc ..> UC_Save : <<include>>
 
-UC_Streak ..> UC_Calendar : <<extend>>
-UC_Tray ..> UC_Alert : <<extend>>
+UC_Calendar <.. UC_Streak : <<extend>>
 
-Timer -- UC_Alert
-OS -- UC_Save
-OS -- UC_Export
+UC_Save -[hidden]down-> UC_Timer
+
+UC_Timer -- Timer
 @enduml
