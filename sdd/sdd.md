@@ -242,6 +242,39 @@ HabitFlow/
   6. На каждом шаге: `maxStreak = std::max(maxStreak, currentStreak)`.
 - **Traceability:** Реализует `REQ-SYS-005`.
 
+
+### 3.7 VIEW-007: Модель вариантов использования (Use Case Viewpoint)
+- **ID:** `VIEW-007-UseCase`
+- **Title:** Модель функциональных вариантов использования системы
+- **Viewpoint:** Use Case & Requirements Viewpoint
+- **Representation:** Диаграмма вариантов использования (`uml/img/usecase.png`) разработана в соответствии со стандартами UML 2.5. На диаграмме отражены действующие лица: `Пользователь` (основной актор), `Системный таймер` (служба времени 50/10) и `Файловая система (ОС)`. Смоделированы 10 прецедентов с отношениями `<<include>>` (включение расчета дисциплины и атомарного сохранения) и `<<extend>>` (расширение календаря детальным анализом стрика и службы трея звуковым алертом).
+- **Диаграмма:** ![Use Case Diagram](../uml/img/usecase.png)
+- **Traceability:** Реализует `SYS-F-001` .. `SYS-F-011`, специфицировано в `docs/glossary.md` и `docs/supplementary-spec.md`.
+
+### 3.8 VIEW-008: Модель процессов и деятельности (Activity Viewpoint)
+- **ID:** `VIEW-008-Activity`
+- **Title:** Алгоритмический процесс фиксации привычек и атомарного расчета
+- **Viewpoint:** Activity & Process Viewpoint
+- **Representation:** Диаграмма активности (`uml/img/activity.png`) детализирует сквозной поток обработки данных по 4 дорожкам ответственности (swimlanes): `Пользователь`, `Интерфейс (GUI / Presenter)`, `Ядро (Core Domain)`, `Хранилище (JSON DB)`. Включает параллельный ввод привычек (fork/join), валидацию диапазонов, вычисление интегрального процента дисциплины по формуле 5 норм, ветвление по порогу 80% (инкремент/сброс стрика) и надежный сброс на диск через временный файл `.tmp` и `fsync()`.
+- **Диаграмма:** ![Activity Diagram](../uml/img/activity.png)
+- **Traceability:** Реализует `SYS-F-001..006`, `SYS-Q-001` (Performance < 5 ms), `SYS-Q-003` (Atomic reliability).
+
+### 3.9 VIEW-009: Модель состояний суточной записи (State Machine Viewpoint)
+- **ID:** `VIEW-009-StateMachine`
+- **Title:** Жизненный цикл сущности HabitRecord
+- **Viewpoint:** State Dynamics Viewpoint
+- **Representation:** Диаграмма состояний (`uml/img/state.png`) формализует жизненный цикл суточной записи: `Uninitialized` $\rightarrow$ `Draft` $\rightarrow$ `InProgress` $\rightarrow$ `Validating` $\rightarrow$ `Calculating` $\rightarrow$ (`CompletedSuccessful` / `CompletedPartial` / `FailedDay`) $\rightarrow$ `AtomicSaving` $\rightarrow$ `Persisted` $\rightarrow$ `Archived`. Предусмотрен режим защиты от аппаратных сбоев `RecoveryMode` с откатом к резервной копии `.bak`.
+- **Диаграмма:** ![State Machine Diagram](../uml/img/state.png)
+- **Traceability:** Реализует `SYS-F-003`, `SYS-F-005`, `SYS-Q-003` (Reliability).
+
+### 3.10 VIEW-010: Модель взаимодействия и протокола сообщений (Sequence Viewpoint)
+- **ID:** `VIEW-010-Sequence`
+- **Title:** Протокол взаимодействия компонентов при сохранении дня
+- **Viewpoint:** Interaction & Sequence Viewpoint
+- **Representation:** Диаграмма последовательности (`uml/img/sequence.png`) отображает упорядоченный во времени обмен сообщениями между линиями жизни (Lifelines): `User`, `TrackerView`, `HabitPresenter`, `DisciplineCalculator`, `StreakManager`, `JsonStorage`, `SystemTrayService`. Содержит синхронные вызовы (`->`), асинхронные сигналы Qt (`->>`), ответные сообщения (`-->`), спецификации выполнения (Execution Specs), фрейм ссылки `ref` (Handle Atomic File Swap) и временное ограничение длительности `{duration < 25ms}`.
+- **Диаграмма:** ![Sequence Diagram](../uml/img/sequence.png)
+- **Traceability:** Реализует `SYS-F-001..006`, `SYS-F-011`, обосновано в [ADR-0004](../adr/0004-dynamic-uml-modeling-and-signal-slot-architecture.md).
+
 ---
 
 ## 4. Архитектурные решения (ADR)
@@ -260,10 +293,22 @@ HabitFlow/
    - *Статус:* Принято.
    - *Суть:* Полная изоляция ядра математических расчётов на чистом C++17 STL от графической библиотеки Qt, обеспечивающая автономное модульное тестирование и параллельную разработку.
 
+4. **[ADR-004: Динамическое моделирование на UML и событийно-ориентированная архитектура на сигналах и слотах Qt](adr/0004-dynamic-uml-modeling-and-signal-slot-architecture.md)**
+   - *Статус:* Принято.
+   - *Суть:* Обоснование событийно-ориентированного взаимодействия на сигналах и слотах Qt для синхронной обработки пользовательских действий и асинхронного таймера фоновой службы трея 50/10.
+
 ---
 
 ## 5. Приложения
 
 - Диаграмма компонентов архитектуры: [`sdd/img/sdd_architecture_diagram.png`](img/sdd_architecture_diagram.png)
 - Дорожная карта и план итераций: [`sdd/img/sdd_iteration_plan.png`](img/sdd_iteration_plan.png)
+- Диаграмма прецедентов UML: [`uml/img/usecase.png`](../uml/img/usecase.png)
+- Диаграмма активности UML: [`uml/img/activity.png`](../uml/img/activity.png)
+- Диаграмма состояний UML: [`uml/img/state.png`](../uml/img/state.png)
+- Диаграмма последовательности UML: [`uml/img/sequence.png`](../uml/img/sequence.png)
+- Исходные текстовые модели PlantUML: каталог [`uml/`](../uml/)
+- Глоссарий проекта: [`docs/glossary.md`](../docs/glossary.md)
+- Дополнительные спецификации: [`docs/supplementary-spec.md`](../docs/supplementary-spec.md)
 - Протоколы архитектурных решений: каталог [`adr/`](../adr/)
+

@@ -1,0 +1,92 @@
+@startuml
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam roundcorner 10
+skinparam shadowing false
+
+skinparam state {
+    BackgroundColor #FFFFFF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    FontSize 11
+    ArrowColor #2563EB
+    ArrowThickness 1.2
+}
+
+[*] --> Uninitialized : Наступление календарных суток
+
+state Uninitialized as "Неинициализирована\n(Uninitialized)" : Запись в habits_db.json отсутствует
+Uninitialized --> Draft : onOpenDate() / Создание экземпляра с дефолтными нормами
+
+state Draft as "Черновик (Draft)" {
+    Draft : entry / Загрузка норм пользователя из UserSettings
+    Draft : do / Инициализация чек-листов и счетчиков
+}
+
+Draft --> InProgress : onInputData() / Начало ввода
+
+state InProgress as "В процессе ввода (InProgress)" {
+    InProgress : do / Отслеживание инкрементов воды (+250/+500 мл)
+    InProgress : do / Ввод продолжительности сна и чекбоксов питания
+}
+
+InProgress --> Validating : onSaveClicked() / Запрос фиксации дня
+
+state Validating as "Валидация (Validating)" <<choice>>
+Validating --> InProgress : [ошибка диапазонов: сон > 24 ч или вода > 10 л]\n/ Вывод предупреждения Tooltip
+Validating --> Calculating : [все значения корректны]
+
+state Calculating as "Расчет дисциплины (Calculating)" {
+    Calculating : entry / Взвешенное суммирование D = sum(w_i * min(1.0, v_i/target_i))
+}
+
+Calculating --> CompletedSuccessful : [D >= 80%]\n/ инкремент стрика
+Calculating --> CompletedPartial : [50% <= D < 80%]\n/ сохранение без инкремента
+Calculating --> FailedDay : [D < 50%]\n/ обнуление стрика (сброс в 0)
+
+state CompletedSuccessful as "Успешный день (Successful)" #ECFDF5 {
+    CompletedSuccessful : entry / Присвоение статуса GREEN в календаре
+    CompletedSuccessful : entry / Проверка личного рекорда
+}
+
+state CompletedPartial as "Частичный день (Partial)" #FEF3C7 {
+    CompletedPartial : entry / Присвоение статуса YELLOW в календаре
+}
+
+state FailedDay as "Срыв режима (Failed)" #FEF2F2 {
+    FailedDay : entry / Присвоение статуса RED в календаре
+}
+
+state AtomicSaving as "Атомарное сохранение (AtomicPersisting)" {
+    AtomicSaving : entry / Сериализация в habits_db.json.tmp
+    AtomicSaving : do / fsync() сброс буферов на физический диск
+    AtomicSaving : exit / std::filesystem::rename()
+}
+
+CompletedSuccessful --> AtomicSaving : commit()
+CompletedPartial --> AtomicSaving : commit()
+FailedDay --> AtomicSaving : commit()
+
+state RecoveryMode as "Восстановление (Recovery)" #FEE2E2 {
+    RecoveryMode : entry / Запись диагностического лога в habits_error.log
+    RecoveryMode : do / Откат к резервному файлу habits_db.json.bak
+}
+
+AtomicSaving --> RecoveryMode : [сбой ввода-вывода I/O]
+RecoveryMode --> Persisted : [восстановление завершено]
+AtomicSaving --> Persisted : [успешная замена файла]
+
+state Persisted as "Зафиксирована (Persisted)" #F0F9FF {
+    Persisted : entry / Генерация сигнала dataSaved()
+    Persisted : do / Обновление календаря и прогресс-бара
+}
+
+Persisted --> InProgress : onEditRecord() / Корректировка показателей
+Persisted --> Archived : onMidnightRollover() / Смена календарной даты
+
+state Archived as "Архивная (Archived)" : Запись защищена от случайного изменения,\nдоступна для экспорта в CSV
+
+Archived --> [*] : Завершение жизненного цикла
+
+@enduml

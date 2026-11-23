@@ -1,0 +1,83 @@
+@startuml
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam roundcorner 8
+skinparam shadowing false
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ArrowThickness 1.2
+    ActorBorderColor #1E40AF
+    ActorBackgroundColor #DBEAFE
+    LifeLineBorderColor #2563EB
+    LifeLineBackgroundColor #EFF6FF
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 11
+    ParticipantFontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFF1F2
+    BorderColor #E11D48
+    FontColor #9F1239
+    FontSize 9.5
+}
+
+actor "Пользователь\n:User" as User
+participant "view\n:TrackerView" as View
+participant "presenter\n:HabitPresenter" as Presenter
+participant "calc\n:DisciplineCalculator" as Calc
+participant "streak\n:StreakManager" as Streak
+participant "storage\n:JsonStorage" as Storage
+participant "tray\n:SystemTrayService" as Tray
+
+note over User, View #FFF1F2
+  <color:red><b>[lifeline]</b></color> Линии жизни взаимодействующих объектов
+end note
+
+User -> View : onSaveClicked()
+activate View
+note right #FFF1F2 : <color:red><b>[synchronous message]</b></color>\nСинхронный вызов обработчика клика
+
+View -> Presenter : onSaveRecord(recordData)
+activate Presenter
+note right #FFF1F2 : <color:red><b>[execution specification]</b></color>\nПолоса активности фокуса управления
+
+Presenter -> Calc : calculateDailyScore(record, settings)
+activate Calc
+Calc --> Presenter : score = 84.5%
+note left #FFF1F2 : <color:red><b>[return message]</b></color>\nОтветное сообщение с результатом расчета
+deactivate Calc
+
+Presenter -> Streak : updateStreak(score)
+activate Streak
+Streak --> Presenter : streakInfo {count: 5, record: 12}
+deactivate Streak
+
+Presenter -> Storage : saveAtomic(record, streakInfo)
+activate Storage
+
+note over Storage #FFF1F2 : <color:red><b>[duration constraint]</b></color>\n{duration < 25ms} Гарантированное время записи
+
+ref over Storage
+  <color:red><b>[interaction use (ref)]</b></color>
+  <b>Фрейм Handle Atomic File Swap:</b>
+  Запись habits_db.json.tmp -> fsync() -> fs::rename()
+end ref
+
+Storage --> Presenter : status = true
+deactivate Storage
+
+Presenter ->> Tray : showNotification("День закрыт: 84.5%! Стрик 5 дней")
+activate Tray
+note right #FFF1F2 : <color:red><b>[asynchronous message]</b></color>\nАсинхронный сигнал Qt Signal/Slot
+deactivate Tray
+
+Presenter --> View : updateDisplay(score, streakInfo)
+deactivate Presenter
+
+View --> User : Отрисовка зеленой ячейки в календаре и конфетти стрика
+deactivate View
+
+@enduml

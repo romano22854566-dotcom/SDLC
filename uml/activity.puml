@@ -1,0 +1,101 @@
+@startuml
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam roundcorner 8
+skinparam shadowing false
+
+skinparam activity {
+    BackgroundColor #FFFFFF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    FontSize 11
+    ArrowColor #2563EB
+    ArrowThickness 1.2
+}
+
+skinparam activityDiamond {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    FontColor #1E40AF
+    FontSize 10.5
+}
+
+skinparam partition {
+    BackgroundColor #F8FAFC
+    BorderColor #94A3B8
+    FontColor #0F172A
+    FontSize 12
+    FontStyle bold
+}
+
+|#EFF6FF|Пользователь|
+start
+:Запуск приложения HabitFlow C++;
+
+|#F0FDF4|Интерфейс (GUI / Presenter)|
+:Загрузка главного окна MainWindow;
+
+|#F8FAFC|Хранилище (JSON DB)|
+:Чтение базы данных habits_db.json;
+if (Файл существует и валиден?) then (да)
+    :Десериализация записей и настроек;
+else (нет / поврежден)
+    :Инициализация дефолтной конфигурации;
+endif
+
+|Интерфейс (GUI / Presenter)|
+:Отрисовка текущего суточного состояния;
+
+|Пользователь|
+:Ввод суточных показателей привычек;
+fork
+    :Ввод часов сна (0..24 ч);
+fork again
+    :Отметка выполненных приемов пищи;
+fork again
+    :Инкремент объема воды (+250 / +500 мл);
+end fork
+:Нажатие кнопки «Сохранить показатели»;
+
+|Интерфейс (GUI / Presenter)|
+:Валидация диапазонов введенных данных;
+if (Значения корректны?) then (да)
+    :Формирование сущности HabitRecord;
+else (ошибка диапазонов)
+    :Подсветка полей с ошибками (красный цвет);
+    :Вывод всплывающего предупреждения (Tooltip);
+    detach
+endif
+
+|#FEF3C7|Ядро (Core Domain)|
+:Расчет суточного процента дисциплины D\nпо взвешенной формуле 5 привычек;
+if (Процент дисциплины D >= 80%?) then (да (норма выполнена))
+    :Инкремент счетчика непрерывной серии (стрика);
+    :Проверка обновления личного рекорда;
+    :Установка статуса «Успешный день» (зеленый);
+else (нет (срыв нормы))
+    :Сброс текущей серии стрика в 0;
+    :Установка статуса «Срыв режима» (красный / желтый);
+endif
+
+|Хранилище (JSON DB)|
+:Сериализация обновленного состояния в JSON;
+:Запись во временный файл habits_db.json.tmp;
+:Вызов fsync() для сброса дискового кэша ОС;
+if (Запись во временный файл успешна?) then (да)
+    :Атомарное переименование fs::rename()\n(habits_db.json.tmp -> habits_db.json);
+else (аппаратный сбой I/O)
+    :Запись ошибки в лог habits_error.log;
+    :Откат к последней валидной копии;
+endif
+
+|Интерфейс (GUI / Presenter)|
+:Обновление ячейки текущего дня в календаре;
+:Обновление виджета стрика и суточного прогресс-бара;
+
+|Пользователь|
+:Просмотр обновленной аналитики дня;
+stop
+
+@enduml
