@@ -1,17 +1,17 @@
 @startuml
 skinparam defaultFontName "Segoe UI"
-skinparam defaultFontSize 11
+skinparam defaultFontSize 13
 skinparam roundcorner 10
 skinparam shadowing false
 
 skinparam state {
     BackgroundColor #FFFFFF
     BorderColor #2563EB
-    BorderThickness 1.2
+    BorderThickness 1.3
     FontColor #0F172A
-    FontSize 11
+    FontSize 12.5
     ArrowColor #2563EB
-    ArrowThickness 1.2
+    ArrowThickness 1.3
 }
 
 [*] --> Uninitialized : Наступление календарных суток
@@ -88,5 +88,4 @@ Persisted --> Archived : onMidnightRollover() / Смена календарно�
 state Archived as "Архивная (Archived)" : Запись защищена от случайного изменения,\nдоступна для экспорта в CSV
 
 Archived --> [*] : Завершение жизненного цикла
-
 @enduml
